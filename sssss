@@ -1,0 +1,44 @@
+from hikka import loader, utils
+import asyncio
+
+class RockYourBodyMod(loader.Module):
+    """Анимированный вывод текста песни по буквам"""
+    strings = {"name": "RockYourBody"}
+
+    async def rockyourbodycmd(self, message):
+        """Анимированный вывод текста песни"""
+        lyrics_data = [
+            ("I wanna da-", 0.06),
+            ("I wanna dance in the lights", 0.05),
+            ("I wanna ro-", 0.07),
+            ("I wanna rock your body", 0.08),
+            ("I wanna go", 0.08),
+            ("I wanna go for a ride", 0.068),
+            ("Hop in the music and", 0.07),
+            ("Rock your body", 0.08),
+            ("Rock that body", 0.069),
+            ("Come on, come on", 0.035),
+            ("(Rock your body)", 0.05),
+            ("Rock that body", 0.03),
+            ("Rock that body", 0.049),
+            ("Come on, come on", 0.035),
+            ("Rock that body", 0.08),
+        ]
+
+        buffer = ""
+        msg = await utils.answer(message, "🎤 Rock Your Body - Starting...")
+        last_text = ""
+
+        for line, delay in lyrics_data:
+            # Анимация появления текста по буквам
+            for i in range(len(line)):
+                buffer = line[:i+1]
+                current_text = f"🎤 Rock Your Body 🎤\n\n{last_text}{buffer}"
+                if current_text != await msg.get_text():  # Проверка на изменение
+                    msg = await utils.answer(msg, current_text)
+                await asyncio.sleep(0.03)  # Задержка между буквами
+            
+            last_text += line + "\n"
+            await asyncio.sleep(delay)  # Задержка между строками
+
+        await utils.answer(msg, f"🎤 Rock Your Body 🎤\n\n{last_text}\n✅ Анимация завершена!")
