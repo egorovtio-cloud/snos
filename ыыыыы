@@ -1,0 +1,42 @@
+from hikka import loader, utils
+import asyncio
+
+class RockYourBodyMod(loader.Module):
+    """Анимированный вывод с синхронизированными задержками"""
+    strings = {"name": "RockYourBody"}
+
+    async def rockyourbodycmd(self, message):
+        """Вывод текста с задержкой букв = задержке между строками"""
+        lyrics_data = [
+            ("I wanna da-", 0.06),    # Эта задержка будет и между буквами, и после строки
+            ("I wanna dance in the lights", 0.05),
+            ("I wanna ro-", 0.07),
+            ("I wanna rock your body", 0.08),
+            ("I wanna go", 0.08),
+            ("I wanna go for a ride", 0.068),
+            ("Hop in the music and", 0.07),
+            ("Rock your body", 0.08),
+            ("Rock that body", 0.069),
+            ("Come on, come on", 0.035),
+            ("(Rock your body)", 0.05),
+            ("Rock that body", 0.03),
+            ("Rock that body", 0.049),
+            ("Come on, come on", 0.035),
+            ("Rock that body", 0.08),
+        ]
+
+        msg = await message.respond("🎤 Начинаем...")
+        full_text = ""
+
+        for line, line_delay in lyrics_data:
+            # Анимация букв с задержкой = line_delay
+            current_line = ""
+            for char in line:
+                current_line += char
+                await msg.edit(f"🎤 Rock Your Body 🎤\n\n{full_text}{current_line}")
+                await asyncio.sleep(line_delay)  # Задержка между буквами = задержке строки
+            
+            full_text += current_line + "\n"
+            await asyncio.sleep(line_delay)  # Та же задержка после строки
+
+        await msg.edit(f"🎤 Rock Your Body 🎤\n\n{full_text}\n✅ Завершено!")
