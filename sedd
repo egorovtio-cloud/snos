@@ -1,0 +1,212 @@
+# meta developer: @Xanaxx_potrebitel
+# scope: hikka_only
+# requires: ffmpeg
+
+import os
+import random
+import asyncio
+import json
+from pathlib import Path
+
+from .. import loader, utils
+
+
+@loader.tds
+class UltimateEditorMod(loader.Module):
+    """ULTIMATE редактор с шаблонами 2025"""
+
+    strings = {
+        "name": "Ultimate Editor",
+        "processing": "🎬 Создаю мега-эдит...",
+        "done": "✅ Эдит готов!",
+        "error": "❌ Ошибка",
+        "no_reply": "❌ Ответьте на медиа",
+        "templates": "🎬 Шаблоны 2025:\n{}",
+    }
+
+    def __init__(self):
+        self.templates = {
+            "1": {"name": "DARK TRAP", "filters": "bass+glitch+night", "color": "🖤"},
+            "2": {"name": "NEON DREAM", "filters": "rgb+vibe+echo", "color": "💖"},
+            "3": {"name": "SLOW WAVE", "filters": "slow+reverb+deep", "color": "🌊"},
+            "4": {"name": "GLITCH CORE", "filters": "glitch+reverse+bass", "color": "📟"},
+            "5": {"name": "NIGHT DRIVE", "filters": "night+deep+vibe", "color": "🌙"},
+            "6": {"name": "PSYCHEDELIC", "filters": "rgb+glitch+echo", "color": "🌈"},
+            "7": {"name": "BASS BOOST", "filters": "bass+deep+reverb", "color": "🔊"},
+            "8": {"name": "REVERSE TRIP", "filters": "reverse+glitch+vibe", "color": "⏪"},
+            "9": {"name": "ECHO CHAMBER", "filters": "echo+reverb+slow", "color": "🔁"},
+            "10": {"name": "DEEP NIGHT", "filters": "deep+night+bass", "color": "🌃"},
+            "11": {"name": "VIBE SHIFT", "filters": "vibe+rgb+echo", "color": "🎭"},
+            "12": {"name": "GLITCH BASS", "filters": "glitch+bass+reverse", "color": "🎛️"},
+            "13": {"name": "SLOW DREAM", "filters": "slow+vibe+reverb", "color": "💤"},
+            "14": {"name": "NEON BASS", "filters": "rgb+bass+glitch", "color": "💜"},
+            "15": {"name": "ULTIMATE MIX", "filters": "bass+slow+reverse+vibe+glitch+night+rgb+deep+echo+reverb", "color": "⚡"},
+        }
+
+    async def client_ready(self, client, db):
+        self.client = client
+        self.db = db
+
+    @loader.owner
+    async def editcmd(self, message):
+        """.edit <фильтры через +> <reply> - Комбинированные эдиты\nФильтры: bass, slow, reverse, vibe, glitch, night, rgb, deep, echo, reverb"""
+        reply = await message.get_reply_message()
+        if not reply or not getattr(reply, 'video', None):
+            return await utils.answer(message, self.strings["no_reply"])
+
+        args = utils.get_args_raw(message)
+        if not args:
+            return await utils.answer(message, "❌ Укажи фильтры через + (например: bass+slow+reverb)")
+
+        await utils.answer(message, self.strings["processing"])
+        await self._process_edit(message, reply, args.split('+'))
+
+    @loader.owner
+    async def edit1cmd(self, message):
+        """.edit1 <номер шаблона 1-15> <reply> - Эдит по шаблону 2025"""
+        reply = await message.get_reply_message()
+        if not reply:
+            return await utils.answer(message, self.strings["no_reply"])
+
+        args = utils.get_args_raw(message)
+        if not args or args not in self.templates:
+            return await utils.answer(message, "❌ Укажи номер шаблона 1-15")
+
+        template = self.templates[args]
+        await utils.answer(message, f"🎬 Шаблон: {template['color']} {template['name']}")
+
+        filters = template["filters"].split('+')
+        await self._process_edit(message, reply, filters)
+
+    @loader.owner
+    async def templatescmd(self, message):
+        """.templates - Показать все шаблоны"""
+        template_list = []
+        for num, template in self.templates.items():
+            template_list.append(f"{num}. {template['color']} {template['name']} - {template['filters']}")
+        
+        await utils.answer(message, self.strings["templates"].format("\n".join(template_list)))
+
+    async def _process_edit(self, message, reply, filters):
+        input_path = f"/tmp/edit_in_{message.id}.mp4"
+        output_path = f"/tmp/edit_out_{message.id}.mp4"
+
+        try:
+            # Скачиваем видео
+            video_data = await reply.download_media(bytes)
+            with open(input_path, "wb") as f:
+                f.write(video_data)
+
+            # Строим комплексный фильтр
+            video_filters = []
+            audio_filters = []
+
+            for filter_name in filters:
+                if filter_name in ["bass", "deep"]:
+                    audio_filters.append("bass=g=20" if filter_name == "bass" else "bass=g=25:f=100, asubboost")
+                elif filter_name == "slow":
+                    video_filters.append("setpts=2.0*PTS")
+                    audio_filters.append("atempo=0.5")
+                elif filter_name == "reverse":
+                    video_filters.append("reverse")
+                    audio_filters.append("areverse")
+                elif filter_name == "vibe":
+                    video_filters.append("split [main][back]; [back] scale=ih*16/9:-1, boxblur=20, crop=iw:ih [blur]; [main] scale=-1:720 [main]; [blur][main] overlay=(W-w)/2:(H-h)/2, eq=brightness=0.05:contrast=1.1:saturation=1.2")
+                elif filter_name == "glitch":
+                    video_filters.append("noise=alls=20:allf=t+u, hue=s=5, crop=in_w-10:in_h-10:5:5")
+                    audio_filters.append("vibrato=f=10:d=0.8")
+                elif filter_name == "night":
+                    video_filters.append("curves=preset=lighter, hue=h=10:s=0.8, eq=brightness=-0.05:contrast=1.2")
+                    audio_filters.append("highpass=f=200, lowpass=f=3000")
+                elif filter_name == "rgb":
+                    video_filters.append("split=3 [r][g][b]; [r] lutrgb=g=0:b=0 [red]; [g] lutrgb=r=0:b=0 [green]; [b] lutrgb=r=0:g=0 [blue]; [red][green] blend=all_mode=screen [rg]; [rg][blue] blend=all_mode=screen")
+                    audio_filters.append("aphaser=type=t:speed=2")
+                elif filter_name == "echo":
+                    audio_filters.append("aecho=0.8:0.88:1000:0.4")
+                elif filter_name == "reverb":
+                    audio_filters.append("aecho=0.8:0.8:100:0.8, areverb")
+
+            # Собираем команду ffmpeg
+            cmd = ["ffmpeg", "-i", input_path]
+
+            if video_filters:
+                cmd.extend(["-vf", ",".join(video_filters)])
+            if audio_filters:
+                cmd.extend(["-af", ",".join(audio_filters)])
+
+            cmd.extend(["-preset", "fast", "-crf", "23", "-y", output_path])
+
+            # Выполняем
+            process = await asyncio.create_subprocess_exec(*cmd)
+            await process.wait()
+
+            if process.returncode != 0:
+                raise Exception("Ошибка обработки")
+
+            # Отправляем результат
+            with open(output_path, "rb") as f:
+                await self.client.send_file(
+                    message.chat_id,
+                    f,
+                    caption=f"🎬 Эдит: {'+'.join(filters).upper()}",
+                    reply_to=reply.id,
+                    supports_streaming=True
+                )
+
+            await utils.answer(message, self.strings["done"])
+
+        except Exception as e:
+            await utils.answer(message, f"{self.strings['error']}: {str(e)}")
+        finally:
+            self._cleanup_files(input_path, output_path)
+
+    def _cleanup_files(self, *files):
+        for file_path in files:
+            try:
+                if file_path and os.path.exists(file_path):
+                    os.remove(file_path)
+            except:
+                pass
+
+
+# Дополнительный модуль для работы с альбомами
+@loader.tds
+class AlbumEditorMod(loader.Module):
+    """Редактор альбомов с шаблонами"""
+
+    strings = {"name": "Album Editor"}
+
+    @loader.owner
+    async def edit1cmd(self, message):
+        """.edit1 <номер шаблона> <reply> - Обработать альбом по шаблону"""
+        reply = await message.get_reply_message()
+        if not reply:
+            return await utils.answer(message, "❌ Ответьте на альбом")
+
+        args = utils.get_args_raw(message)
+        if not args:
+            return await utils.answer(message, "❌ Укажи номер шаблона 1-15")
+
+        # Здесь будет обработка альбома
+        await utils.answer(message, "🎬 Обрабатываю альбом...")
+        # Реализация обработки альбома
+
+    @loader.owner
+    async def templatecmd(self, message):
+        """.template <номер> - Показать пример шаблона"""
+        args = utils.get_args_raw(message)
+        if not args:
+            return await utils.answer(message, "❌ Укажи номер шаблона 1-15")
+
+        # Отправляем описание шаблона
+        template_info = {
+            "1": "🖤 DARK TRAP - Темный эдит с мощным басом и глитчами",
+            "2": "💖 NEON DREAM - Неоновые цвета и вайбовые эффекты",
+            "3": "🌊 SLOW WAVE - Медленный вайб с реверберацией",
+            # ... остальные шаблоны
+        }
+
+        if args in template_info:
+            await utils.answer(message, f"🎬 Шаблон {args}:\n{template_info[args]}")
+        else:
+            await utils.answer(message, "❌ Неизвестный шаблон")
